@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>House Sq.ft Calculator</title>
+  <style>
+    :root { font-family: Arial, Helvetica, sans-serif; color: #172033; background: #f3f6fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px 14px; }
+    .app { max-width: 1050px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 14px; box-shadow: 0 8px 28px #17203312; }
+    h1 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 32px); }
+    .subtitle { color: #5e687a; margin: 0 0 22px; }
+    .top-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+    label { display: block; font-weight: 700; margin-bottom: 7px; font-size: 14px; }
+    input, select { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #ccd4e0; border-radius: 7px; font: inherit; background: #fff; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 650px; }
+    th, td { border-bottom: 1px solid #e4e9f1; padding: 10px 8px; text-align: left; }
+    th { background: #f6f8fc; font-size: 13px; }
+    td input, td select { padding: 9px; }
+    .custom-area-name { margin-top: 6px; }
+    .area-result { font-weight: 700; white-space: nowrap; }
+    .remove { border: 0; background: #fee2e2; color: #991b1b; border-radius: 6px; padding: 9px 11px; cursor: pointer; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    button { border: 0; border-radius: 7px; padding: 11px 15px; font: inherit; font-weight: 700; cursor: pointer; }
+    .primary { background: #2563eb; color: white; }
+    .secondary { background: #e8eef8; color: #1e293b; }
+    .total-card { background: #eff6ff; border: 1px solid #bfdbfe; padding: 18px; border-radius: 10px; margin-top: 20px; }
+    .total-label { color: #475569; margin-bottom: 5px; }
+    .total-value { font-size: 28px; font-weight: 800; color: #1d4ed8; }
+    .note { color: #64748b; font-size: 12px; margin-top: 16px; line-height: 1.5; }
+    @media (max-width: 560px) { .app { padding: 17px; } .top-fields { grid-template-columns: 1fr; } }
+    @media print {
+      body { background: white; padding: 0; }
+      .app { max-width: none; box-shadow: none; padding: 0; }
+      .actions, .remove, .note, .subtitle { display: none !important; }
+      input { border: 0; padding: 2px; background: transparent; }
+      th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .total-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>House Sq.ft Calculator</h1>
+    <p class="subtitle">Enter the name, width and length of each area. The square feet and grand total update automatically.</p>
+
+    <div class="top-fields">
+      <div>
+        <label for="projectName">House / Project Name (optional)</label>
+        <input id="projectName" type="text" placeholder="e.g. My New House / என் வீடு" lang="ta" autocomplete="off">
+      </div>
+      <div>
+        <label for="reportDate">Date</label>
+        <input id="reportDate" type="date">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:34%">Area Name</th>
+            <th style="width:19%">Width (ft)</th>
+            <th style="width:19%">Length (ft)</th>
+            <th style="width:18%">Result (sq.ft)</th>
+            <th class="action-col" style="width:10%">Action</th>
+          </tr>
+        </thead>
+        <tbody id="areaRows"></tbody>
+      </table>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="secondary" id="addRowBtn">+ Add Area</button>
+      <button type="button" class="primary" id="downloadBtn">Download PDF</button>
+      <button type="button" class="secondary" id="resetBtn">Clear All</button>
+    </div>
+
+    <section class="total-card">
+      <div class="total-label">Total Area</div>
+      <div class="total-value"><span id="totalSqft">0</span> sq.ft</div>
+    </section>
+    <p class="note">PDF tip: Choose “Download PDF” and select “Save as PDF” in the print dialog. Only rows with an area name or entered dimensions are included in the PDF.</p>
+  </main>
+
+  <script>
+    const rows = document.getElementById('areaRows');
+    const totalSqft = document.getElementById('totalSqft');
+    const reportDate = document.getElementById('reportDate');
+
+    // Default date is today.
+    reportDate.value = new Date().toLocaleDateString('en-CA');
+
+    function formatNumber(value) {
+      return Number(value.toFixed(2)).toLocaleString('en-IN', {
+        maximumFractionDigits: 2
+      });
+    }
+
+    const areaOptions = ['Roof', 'Sun Side', 'Hall', 'Bedroom', 'Kitchen', 'Bathroom', 'Balcony', 'Staircase', 'கூரை', 'வெயில் பக்கம்', 'மண்டபம்', 'படுக்கையறை', 'சமையலறை', 'குளியலறை', 'பால்கனி', 'படிக்கட்டு', 'Other / Custom'];
+
+    function addRow(name = '', width = '', length = '') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <select class="area-name" aria-label="Area name">
+            <option value="">Select area / பகுதியைத் தேர்ந்தெடுக்கவும்</option>
+            ${areaOptions.map(option => `<option value="${option}">${option}</option>`).join('')}
+          </select>
+          <input type="text" class="custom-area-name" aria-label="Custom area name" placeholder="Enter area name / பகுதி பெயரை உள்ளிடவும்" lang="ta" autocomplete="off" style="display:none">
+        </td>
+        <td><input type="number" class="area-width" aria-label="Width in feet" min="0" step="any" placeholder="0"></td>
+        <td><input type="number" class="area-length" aria-label="Length in feet" min="0" step="any" placeholder="0"></td>
+        <td class="area-result">0 sq.ft</td>
+        <td class="action-col"><button type="button" class="remove" aria-label="Remove area">Remove</button></td>
+      `;
+      const areaSelect = tr.querySelector('.area-name');
+      const customInput = tr.querySelector('.custom-area-name');
+      if (name && areaOptions.includes(name)) {
+        areaSelect.value = name;
+      } else if (name) {
+        areaSelect.value = 'Other / Custom';
+        customInput.value = name;
+        customInput.style.display = 'block';
+      }
+      areaSelect.addEventListener('change', () => {
+        const isCustom = areaSelect.value === 'Other / Custom';
+        customInput.style.display = isCustom ? 'block' : 'none';
+        if (!isCustom) customInput.value = '';
+        calculate();
+      });
+      customInput.addEventListener('input', calculate);
+      tr.querySelector('.area-width').value = width;
+      tr.querySelector('.area-length').value = length;
+      tr.querySelectorAll('input').forEach(input => input.addEventListener('input', calculate));
+      tr.querySelector('.remove').addEventListener('click', () => {
+        tr.remove();
+        calculate();
+      });
+      rows.appendChild(tr);
+      calculate();
+    }
+
+    function calculate() {
+      let total = 0;
+      [...rows.querySelectorAll('tr')].forEach(tr => {
+        const width = parseFloat(tr.querySelector('.area-width').value) || 0;
+        const length = parseFloat(tr.querySelector('.area-length').value) || 0;
+        const area = width * length;
+        tr.querySelector('.area-result').textContent = `${formatNumber(area)} sq.ft`;
+        total += area;
+      });
+      totalSqft.textContent = formatNumber(total);
+    }
+
+    document.getElementById('addRowBtn').addEventListener('click', () => addRow());
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const project = document.getElementById('projectName').value.trim();
+      const title = document.querySelector('h1');
+      const oldTitle = title.textContent;
+      title.textContent = project ? `House Sq.ft Calculator - ${project}` : 'House Sq.ft Calculator';
+      window.print();
+      title.textContent = oldTitle;
+    });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (confirm('Clear all areas and start again?')) {
+        rows.innerHTML = '';
+        addRow('Roof');
+        addRow('Sun Side');
+        addRow();
+      }
+    });
+
+    // Start with commonly used area rows.
+    addRow('Roof');
+    addRow('Sun Side');
+    addRow();
+  </script>
+</body>
+</html>
