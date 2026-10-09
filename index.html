@@ -34,14 +34,25 @@
     .rate-total { font-size: 22px; font-weight: 800; color: #047857; margin-top: 5px; }
     .note { color: #64748b; font-size: 12px; margin-top: 16px; line-height: 1.5; }
     @media (max-width: 560px) { .app { padding: 17px; } .top-fields, .rate-fields { grid-template-columns: 1fr; } }
+    @page { size: A4 landscape; margin: 12mm; }
     @media print {
-      body { background: white; padding: 0; }
-      .app { max-width: none; box-shadow: none; padding: 0; }
-      .actions, .remove, .note, .subtitle { display: none !important; }
-      input, select { border: 0; padding: 2px; background: transparent; }
+      body { background: white; padding: 0; font-size: 10pt; }
+      .app { max-width: none; width: 100%; box-shadow: none; padding: 0; border-radius: 0; }
+      .actions, .remove, .note, .subtitle, .action-col { display: none !important; }
+      h1 { font-size: 20pt; margin-bottom: 5px; }
+      .top-fields { margin-bottom: 12px; }
+      .table-wrap { overflow: visible; }
+      table { width: 100%; min-width: 0; table-layout: fixed; }
+      th, td { padding: 7px 6px; overflow-wrap: anywhere; }
+      th { font-size: 9pt; }
+      td input, input, select { width: 100%; min-width: 0; border: 0; padding: 2px; background: transparent; font-size: 9pt; }
+      .area-result, .row-total-rate { white-space: normal; }
       .rate-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .total-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .total-card { break-inside: avoid; page-break-inside: avoid; margin-top: 12px; padding: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .total-value { font-size: 20pt; }
+      .rate-total { font-size: 16pt; }
+      thead { display: table-header-group; }
+      tr { break-inside: avoid; page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -194,9 +205,18 @@
       const project = document.getElementById('projectName').value.trim();
       const title = document.querySelector('h1');
       const oldTitle = title.textContent;
+      const safeProjectName = (project || 'House Sq.ft Calculator')
+        .replace(/[\\\\/:*?"<>|]/g, '-')
+        .replace(/\\s+/g, ' ')
+        .trim();
+      const originalDocumentTitle = document.title;
+
       title.textContent = project ? `House Sq.ft Calculator - ${project}` : 'House Sq.ft Calculator';
+      // Chrome uses the document title as the suggested filename in its Save as PDF dialog.
+      document.title = safeProjectName;
       window.print();
       title.textContent = oldTitle;
+      document.title = originalDocumentTitle;
     });
     document.getElementById('resetBtn').addEventListener('click', () => {
       if (confirm('Clear all areas and start again?')) {
