@@ -29,13 +29,17 @@
     .total-card { background: #eff6ff; border: 1px solid #bfdbfe; padding: 18px; border-radius: 10px; margin-top: 20px; }
     .total-label { color: #475569; margin-bottom: 5px; }
     .total-value { font-size: 28px; font-weight: 800; color: #1d4ed8; }
+    .rate-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+    .rate-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; }
+    .rate-total { font-size: 22px; font-weight: 800; color: #047857; margin-top: 5px; }
     .note { color: #64748b; font-size: 12px; margin-top: 16px; line-height: 1.5; }
-    @media (max-width: 560px) { .app { padding: 17px; } .top-fields { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .app { padding: 17px; } .top-fields, .rate-fields { grid-template-columns: 1fr; } }
     @media print {
       body { background: white; padding: 0; }
       .app { max-width: none; box-shadow: none; padding: 0; }
       .actions, .remove, .note, .subtitle { display: none !important; }
-      input { border: 0; padding: 2px; background: transparent; }
+      input, select { border: 0; padding: 2px; background: transparent; }
+      .rate-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .total-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
@@ -64,7 +68,9 @@
             <th style="width:34%">Area Name</th>
             <th style="width:19%">Width (ft)</th>
             <th style="width:19%">Length (ft)</th>
-            <th style="width:18%">Result (sq.ft)</th>
+            <th style="width:16%">Result (sq.ft)</th>
+            <th style="width:16%">Rate per sq.ft (₹)</th>
+            <th style="width:16%">Total Rate (₹)</th>
             <th class="action-col" style="width:10%">Action</th>
           </tr>
         </thead>
@@ -81,6 +87,17 @@
     <section class="total-card">
       <div class="total-label">Total Area</div>
       <div class="total-value"><span id="totalSqft">0</span> sq.ft</div>
+      <div class="rate-fields">
+        <div class="rate-card">
+          <label for="defaultRate">Default rate per sq.ft (₹)</label>
+          <input id="defaultRate" type="number" min="0" step="any" placeholder="e.g. 2000" value="0">
+          <div class="note">Used for rows where no separate rate is entered.</div>
+        </div>
+        <div class="rate-card">
+          <div class="total-label">Grand Total Rate</div>
+          <div class="rate-total">₹ <span id="grandTotalRate">0</span></div>
+        </div>
+      </div>
     </section>
     <p class="note">PDF tip: Choose “Download PDF” and select “Save as PDF” in the print dialog. Only rows with an area name or entered dimensions are included in the PDF.</p>
   </main>
@@ -88,6 +105,8 @@
   <script>
     const rows = document.getElementById('areaRows');
     const totalSqft = document.getElementById('totalSqft');
+    const grandTotalRate = document.getElementById('grandTotalRate');
+    const defaultRateInput = document.getElementById('defaultRate');
     const reportDate = document.getElementById('reportDate');
 
     // Default date is today.
@@ -114,6 +133,8 @@
         <td><input type="number" class="area-width" aria-label="Width in feet" min="0" step="any" placeholder="0"></td>
         <td><input type="number" class="area-length" aria-label="Length in feet" min="0" step="any" placeholder="0"></td>
         <td class="area-result">0 sq.ft</td>
+        <td><input type="number" class="area-rate" aria-label="Rate per square foot in rupees" min="0" step="any" placeholder="Use default"></td>
+        <td class="row-total-rate">₹ 0</td>
         <td class="action-col"><button type="button" class="remove" aria-label="Remove area">Remove</button></td>
       `;
       const areaSelect = tr.querySelector('.area-name');
@@ -145,15 +166,28 @@
 
     function calculate() {
       let total = 0;
+      let grandRate = 0;
+      const defaultRate = Math.max(0, parseFloat(defaultRateInput.value) || 0);
+
       [...rows.querySelectorAll('tr')].forEach(tr => {
-        const width = parseFloat(tr.querySelector('.area-width').value) || 0;
-        const length = parseFloat(tr.querySelector('.area-length').value) || 0;
+        const width = Math.max(0, parseFloat(tr.querySelector('.area-width').value) || 0);
+        const length = Math.max(0, parseFloat(tr.querySelector('.area-length').value) || 0);
+        const enteredRate = tr.querySelector('.area-rate').value;
+        const rate = enteredRate.trim() === '' ? defaultRate : Math.max(0, parseFloat(enteredRate) || 0);
         const area = width * length;
+        const rowTotal = area * rate;
+
         tr.querySelector('.area-result').textContent = `${formatNumber(area)} sq.ft`;
+        tr.querySelector('.row-total-rate').textContent = `₹ ${formatNumber(rowTotal)}`;
         total += area;
+        grandRate += rowTotal;
       });
+
       totalSqft.textContent = formatNumber(total);
+      grandTotalRate.textContent = formatNumber(grandRate);
     }
+
+    defaultRateInput.addEventListener('input', calculate);
 
     document.getElementById('addRowBtn').addEventListener('click', () => addRow());
     document.getElementById('downloadBtn').addEventListener('click', () => {
